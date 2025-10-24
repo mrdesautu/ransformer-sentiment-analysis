@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transformer Sentiment Analysis - Demo</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <div class="logo">
+                    <i class="fas fa-brain"></i>
+                    <h1>Transformer Sentiment Analysis</h1>
+                </div>
+                <nav class="nav">
+                    <a href="#demo" class="nav-link">Demo</a>
+                    <a href="#interpretability" class="nav-link">Interpretability</a>
+                    <a href="#metrics" class="nav-link">Metrics</a>
+                    <a href="#architecture" class="nav-link">Architecture</a>
+                    <a href="#about" class="nav-link">About</a>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <h2>Sentiment Analysis with DistilBERT</h2>
+                <p>Complete ML project with training, advanced inference, interpretability and production deployment</p>
+                <div class="hero-stats">
+                    <div class="stat">
+                        <span class="stat-number" id="model-accuracy">74%</span>
+                        <span class="stat-label">Accuracy</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-number">66.9M</span>
+                        <span class="stat-label">Parameters</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-number">~100ms</span>
+                        <span class="stat-label">Inference Time</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Demo Section -->
+    <section id="demo" class="demo-section">
+        <div class="container">
+            <h3>Interactive Demo</h3>
+            
+            <!-- API Status -->
+            <div class="api-status" id="api-status">
+                <i class="fas fa-circle"></i>
+                <span>Conectando a la API...</span>
+            </div>
+
+            <!-- Single Text Analysis -->
+            <div class="demo-card">
+                <h4><i class="fas fa-comment"></i> Individual Text Analysis</h4>
+                <div class="input-group">
+                    <textarea 
+                        id="text-input" 
+                        placeholder="Write here the text you want to analyze... E.g.: 'This movie is incredible!'"
+                        rows="3"
+                    ></textarea>
+                    <button id="analyze-btn" class="btn-primary">
+                        <i class="fas fa-search"></i>
+                        Analyze
+                    </button>
+                </div>
+                
+                <!-- Results -->
+                <div id="single-result" class="result-card" style="display: none;">
+                    <div class="result-header">
+                        <h5>Resultado del Análisis</h5>
+                        <span class="confidence-badge" id="confidence-badge"></span>
+                    </div>
+                    <div class="sentiment-display">
+                        <div class="sentiment-icon" id="sentiment-icon"></div>
+                        <div class="sentiment-text">
+                            <span class="sentiment-label" id="sentiment-label"></span>
+                            <span class="confidence-text" id="confidence-text"></span>
+                        </div>
+                    </div>
+                    <div class="probability-chart">
+                        <canvas id="probability-chart" width="400" height="200"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Batch Analysis -->
+            <div class="demo-card">
+                <h4><i class="fas fa-list"></i> Batch Analysis</h4>
+                <div class="batch-input">
+                    <textarea 
+                        id="batch-input" 
+                        placeholder="Enter multiple texts, one per line:&#10;This product is excellent&#10;I didn't like it at all&#10;It's okay, nothing more"
+                        rows="4"
+                    ></textarea>
+                    <button id="batch-analyze-btn" class="btn-secondary">
+                        <i class="fas fa-layer-group"></i>
+                        Analyze Batch
+                    </button>
+                </div>
+                
+                <div id="batch-results" class="batch-results" style="display: none;">
+                    <h5>Batch Results</h5>
+                    <div id="batch-results-list"></div>
+                    <canvas id="batch-chart" width="400" height="300"></canvas>
+                </div>
+            </div>
+
+            <!-- Model Selection -->
+            <div class="demo-card">
+                <h4><i class="fas fa-cog"></i> Model Configuration</h4>
+                <div class="model-config">
+                    <div class="config-group">
+                        <label for="model-select">Model:</label>
+                        <select id="model-select">
+                            <option value="pretrained">DistilBERT Pre-trained</option>
+                            <option value="custom">Fine-tuned Model (IMDB)</option>
+                        </select>
+                    </div>
+                    <div class="config-group">
+                        <label for="show-probabilities">
+                            <input type="checkbox" id="show-probabilities" checked>
+                            Show probability distribution
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Interpretability Section -->
+    <section id="interpretability" class="interpretability-section">
+        <div class="container">
+            <h3>Model Interpretability</h3>
+            <p>Explore how the model makes decisions through attention visualizations and SHAP analysis</p>
+            
+            <div class="interpretability-grid">
+                <!-- Input Card -->
+                <div class="demo-card">
+                    <h4><i class="fas fa-microscope"></i> Interpretability Analysis</h4>
+                    <div class="input-group">
+                        <textarea 
+                            id="interpret-input" 
+                            placeholder="Write the text you want to analyze to understand how the model makes its decision..."
+                            rows="3"
+                        ></textarea>
+                        <button id="interpret-btn" class="btn-primary">
+                            <i class="fas fa-search"></i>
+                            Analyze Interpretability
+                        </button>
+                    </div>
+                    
+                    <div id="interpret-prediction" class="prediction-result" style="display: none;">
+                        <h5>Prediction</h5>
+                        <div class="prediction-details">
+                            <span class="prediction-label" id="interpret-pred-label"></span>
+                            <span class="prediction-confidence" id="interpret-pred-confidence"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Attention Visualization -->
+                <div class="demo-card interpretation-card">
+                    <h4><i class="fas fa-eye"></i> Attention Visualization</h4>
+                    
+                    <div id="attention-placeholder" class="info-placeholder">
+                        <i class="fas fa-eye"></i>
+                        <p>Analyze a text to see how the model's attention mechanism focuses on different words and phrases.</p>
+                        <p class="placeholder-hint">The visualization will show:</p>
+                        <ul class="feature-list">
+                            <li><i class="fas fa-check-circle"></i> Attention patterns across all layers</li>
+                            <li><i class="fas fa-check-circle"></i> Heatmap of token relationships</li>
+                            <li><i class="fas fa-check-circle"></i> Interactive layer and head exploration</li>
+                        </ul>
+                    </div>
+                    
+                    <div id="attention-loading" class="loading" style="display: none;">
+                        <i class="fas fa-spinner fa-spin"></i> Generating visualizations...
+                    </div>
+                    <div id="attention-results" style="display: none;">
+                        <div class="attention-tabs">
+                            <button class="tab-btn active" data-tab="summary">Summary</button>
+                            <button class="tab-btn" data-tab="heatmap">Heatmap</button>
+                            <button class="tab-btn" data-tab="interactive">Interactive</button>
+                        </div>
+                        
+                        <div class="tab-content">
+                            <div id="tab-summary" class="tab-panel active">
+                                <img id="attention-summary-img" src="" alt="Attention summary" style="width: 100%; max-width: 600px; display: none;">
+                            </div>
+                            <div id="tab-heatmap" class="tab-panel">
+                                <img id="attention-heatmap-img" src="" alt="Attention heatmap" style="width: 100%; max-width: 600px; display: none;">
+                            </div>
+                            <div id="tab-interactive" class="tab-panel">
+                                <div id="interactive-attention" class="interactive-attention">
+                                    <div class="attention-controls">
+                                        <label>Layer: <select id="layer-select"></select></label>
+                                        <label>Head: <select id="head-select"></select></label>
+                                    </div>
+                                    <div id="attention-matrix" class="attention-matrix"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SHAP Explanation -->
+                <div class="demo-card interpretation-card">
+                    <h4><i class="fas fa-chart-line"></i> SHAP Explanation</h4>
+                    
+                    <div id="shap-placeholder" class="info-placeholder">
+                        <i class="fas fa-chart-line"></i>
+                        <p>SHAP (SHapley Additive exPlanations) provides detailed feature importance analysis.</p>
+                        <p class="placeholder-hint">Understanding SHAP values:</p>
+                        <ul class="feature-list">
+                            <li><i class="fas fa-check-circle"></i> Shows positive and negative contributions</li>
+                            <li><i class="fas fa-check-circle"></i> Highlights impactful words in red/blue</li>
+                            <li><i class="fas fa-check-circle"></i> Based on game theory principles</li>
+                        </ul>
+                    </div>
+                    
+                    <div id="shap-results" style="display: none;">
+                        <div class="shap-explanation">
+                            <img id="shap-explanation-img" src="" alt="SHAP explanation" style="width: 100%; max-width: 600px; display: none;">
+                            <div id="shap-not-available" style="display: none;">
+                                <p><i class="fas fa-info-circle"></i> SHAP is not available for this model.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Token Importance -->
+                <div class="demo-card interpretation-card">
+                    <h4><i class="fas fa-weight-hanging"></i> Token Importance</h4>
+                    
+                    <div id="token-placeholder" class="info-placeholder">
+                        <i class="fas fa-weight-hanging"></i>
+                        <p>See which words contribute most to the model's decision.</p>
+                        <p class="placeholder-hint">This visualization shows:</p>
+                        <ul class="feature-list">
+                            <li><i class="fas fa-check-circle"></i> Relative importance of each token</li>
+                            <li><i class="fas fa-check-circle"></i> Attention weight distribution</li>
+                            <li><i class="fas fa-check-circle"></i> Key words influencing the prediction</li>
+                        </ul>
+                    </div>
+                    
+                    <div id="token-importance" style="display: none;">
+                        <div class="token-importance-viz">
+                            <div id="token-bars"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Metrics Section -->
+    <section id="metrics" class="metrics-section">
+        <div class="container">
+            <h3>Model Metrics</h3>
+            
+            <div class="metrics-grid">
+                <!-- Training Metrics -->
+                <div class="metric-card">
+                    <h4>Métricas de Entrenamiento</h4>
+                    <div style="position: relative; height: 300px; width: 100%;">
+                        <canvas id="training-chart"></canvas>
+                    </div>
+                    <div class="metric-details">
+                        <div class="metric-item">
+                            <span class="metric-label">Epochs:</span>
+                            <span class="metric-value">3</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-label">Learning Rate:</span>
+                            <span class="metric-value">2e-05</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-label">Batch Size:</span>
+                            <span class="metric-value">16</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Performance Metrics -->
+                <div class="metric-card">
+                    <h4>Rendimiento del Modelo</h4>
+                    <div class="performance-metrics">
+                        <div class="performance-item">
+                            <div class="performance-circle" data-percentage="74">
+                                <span>74%</span>
+                            </div>
+                            <label>Accuracy</label>
+                        </div>
+                        <div class="performance-item">
+                            <div class="performance-circle" data-percentage="73">
+                                <span>73%</span>
+                            </div>
+                            <label>F1-Score</label>
+                        </div>
+                        <div class="performance-item">
+                            <div class="performance-circle" data-percentage="59">
+                                <span>0.59</span>
+                            </div>
+                            <label>Loss</label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Model Architecture -->
+                <div class="metric-card">
+                    <h4>Arquitectura del Modelo</h4>
+                    <div class="architecture-info">
+                        <div class="arch-item">
+                            <i class="fas fa-microchip"></i>
+                            <span>DistilBERT-base-uncased</span>
+                        </div>
+                        <div class="arch-item">
+                            <i class="fas fa-layer-group"></i>
+                            <span>6 Transformer Layers</span>
+                        </div>
+                        <div class="arch-item">
+                            <i class="fas fa-brain"></i>
+                            <span>12 Attention Heads</span>
+                        </div>
+                        <div class="arch-item">
+                            <i class="fas fa-database"></i>
+                            <span>768 Hidden Size</span>
+                        </div>
+                        <div class="arch-item">
+                            <i class="fas fa-book"></i>
+                            <span>30,522 Vocabulary</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Architecture Section -->
+    <section id="architecture" class="architecture-section">
+        <div class="container">
+            <h3>Arquitectura del Sistema</h3>
+            
+            <div class="architecture-diagram">
+                <div class="arch-component" data-component="data">
+                    <i class="fas fa-database"></i>
+                    <h4>Datos</h4>
+                    <p>Dataset IMDB<br>50K reseñas</p>
+                </div>
+                
+                <div class="arch-arrow">→</div>
+                
+                <div class="arch-component" data-component="preprocessing">
+                    <i class="fas fa-cogs"></i>
+                    <h4>Preprocesamiento</h4>
+                    <p>Tokenización<br>DistilBERT</p>
+                </div>
+                
+                <div class="arch-arrow">→</div>
+                
+                <div class="arch-component" data-component="model">
+                    <i class="fas fa-brain"></i>
+                    <h4>Modelo</h4>
+                    <p>DistilBERT<br>Fine-tuning</p>
+                </div>
+                
+                <div class="arch-arrow">→</div>
+                
+                <div class="arch-component" data-component="api">
+                    <i class="fas fa-server"></i>
+                    <h4>API</h4>
+                    <p>FastAPI<br>Inferencia</p>
+                </div>
+                
+                <div class="arch-arrow">→</div>
+                
+                <div class="arch-component" data-component="frontend">
+                    <i class="fas fa-desktop"></i>
+                    <h4>Frontend</h4>
+                    <p>React/JS<br>UI Interactiva</p>
+                </div>
+            </div>
+
+            <!-- Tech Stack -->
+            <div class="tech-stack">
+                <h4>Stack Tecnológico</h4>
+                <div class="tech-grid">
+                    <div class="tech-item">
+                        <i class="fab fa-python"></i>
+                        <span>Python</span>
+                    </div>
+                    <div class="tech-item">
+                        <i class="fas fa-fire"></i>
+                        <span>PyTorch</span>
+                    </div>
+                    <div class="tech-item">
+                        <i class="fas fa-robot"></i>
+                        <span>Transformers</span>
+                    </div>
+                    <div class="tech-item">
+                        <i class="fas fa-rocket"></i>
+                        <span>FastAPI</span>
+                    </div>
+                    <div class="tech-item">
+                        <i class="fab fa-docker"></i>
+                        <span>Docker</span>
+                    </div>
+                    <div class="tech-item">
+                        <i class="fab fa-js-square"></i>
+                        <span>JavaScript</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- About Section -->
+    <section id="about" class="about-section">
+        <div class="container">
+            <h3>Acerca del Proyecto</h3>
+            <div class="about-content">
+                <div class="about-text">
+                    <p>Este proyecto demuestra una implementación completa de análisis de sentimientos usando Transformers, 
+                    desde el entrenamiento hasta el deployment en producción.</p>
+                    
+                    <h4>Características Principales:</h4>
+                    <ul>
+                        <li><i class="fas fa-check"></i> Fine-tuning de DistilBERT en dataset IMDB</li>
+                        <li><i class="fas fa-check"></i> API de producción con FastAPI</li>
+                        <li><i class="fas fa-check"></i> Procesamiento por lotes optimizado</li>
+                        <li><i class="fas fa-check"></i> Visualización de métricas en tiempo real</li>
+                        <li><i class="fas fa-check"></i> Interpretabilidad con attention weights</li>
+                        <li><i class="fas fa-check"></i> Deployment con Docker</li>
+                        <li><i class="fas fa-check"></i> Testing comprehensivo</li>
+                    </ul>
+                </div>
+                
+                <div class="about-stats">
+                    <div class="stat-box">
+                        <h4>Rendimiento</h4>
+                        <p>Accuracy: 74%<br>
+                        Latencia: ~100ms<br>
+                        Throughput: 1000+ req/s</p>
+                    </div>
+                    <div class="stat-box">
+                        <h4>Escalabilidad</h4>
+                        <p>Horizontal scaling<br>
+                        Load balancing<br>
+                        Auto-restart</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h4>Transformer Sentiment Analysis</h4>
+                    <p>Proyecto demostrativo de ML en producción</p>
+                </div>
+                <div class="footer-section">
+                    <h4>Enlaces</h4>
+                    <a href="#demo">Demo</a>
+                    <a href="#metrics">Métricas</a>
+                    <a href="#architecture">Arquitectura</a>
+                </div>
+                <div class="footer-section">
+                    <h4>Tecnologías</h4>
+                    <a href="https://huggingface.co/transformers/">Transformers</a>
+                    <a href="https://pytorch.org/">PyTorch</a>
+                    <a href="https://fastapi.tiangolo.com/">FastAPI</a>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2025 Transformer Sentiment Analysis Project</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay" style="display: none;">
+        <div class="spinner"></div>
+        <p>Analizando texto...</p>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

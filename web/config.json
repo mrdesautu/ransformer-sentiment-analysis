@@ -1,0 +1,149 @@
+{
+  "ui": {
+    "title": "🤖 Transformer Sentiment Analysis",
+    "subtitle": "Análisis de Sentimientos con DistilBERT",
+    "theme": {
+      "primaryColor": "#667eea",
+      "secondaryColor": "#764ba2",
+      "successColor": "#28a745",
+      "dangerColor": "#dc3545",
+      "warningColor": "#ffc107",
+      "infoColor": "#17a2b8"
+    },
+    "features": {
+      "showProbabilities": true,
+      "showBatchAnalysis": true,
+      "showModelSelection": true,
+      "showMetrics": true,
+      "showArchitecture": true,
+      "animationsEnabled": true
+    }
+  },
+  "api": {
+    "baseUrl": "http://127.0.0.1:8000",
+    "timeout": 10000,
+    "retries": 3,
+    "endpoints": {
+      "health": "/health",
+      "predict": "/predict",
+      "predictBatch": "/predict/batch",
+      "predictProbs": "/predict/probabilities",
+      "modelInfo": "/model/info"
+    }
+  },
+  "demo": {
+    "exampleTexts": [
+      "I absolutely love this movie! The acting was incredible and the story was captivating.",
+      "This product is terrible. Worst purchase I've ever made.",
+      "The service was okay, nothing special but not bad either.",
+      "Amazing experience! Highly recommend to everyone.",
+      "Completely disappointed with the quality. Not worth the money."
+    ],
+    "batchExamples": [
+      "This is an amazing product!",
+      "I hate waiting in long lines.",
+      "The weather is nice today.",
+      "Terrible customer service experience.",
+      "Great value for money!"
+    ],
+    "mockData": {
+      "enabled": true,
+      "confidence": {
+        "min": 0.6,
+        "max": 0.95
+      },
+      "positiveWords": ["good", "great", "excellent", "amazing", "love", "wonderful", "fantastic", "awesome", "perfect", "brilliant"],
+      "negativeWords": ["bad", "terrible", "awful", "hate", "horrible", "worst", "disappointing", "poor", "disgusting", "trash"]
+    }
+  },
+  "charts": {
+    "colors": {
+      "positive": "#28a745",
+      "negative": "#dc3545",
+      "neutral": "#6c757d"
+    },
+    "animations": {
+      "duration": 1000,
+      "easing": "easeInOutQuart"
+    }
+  },
+  "limits": {
+    "maxTextLength": 1000,
+    "maxBatchSize": 10,
+    "minTextLength": 5
+  },
+  "messages": {
+    "errors": {
+      "apiUnavailable": "🔌 API no disponible. Usando modo demo.",
+      "textTooShort": "El texto debe tener al menos 5 caracteres.",
+      "textTooLong": "El texto es demasiado largo (máximo 1000 caracteres).",
+      "batchTooLarge": "Máximo 10 textos permitidos por lote.",
+      "networkError": "Error de conexión. Por favor, intenta de nuevo.",
+      "invalidResponse": "Respuesta inválida del servidor."
+    },
+    "success": {
+      "analysisComplete": "✅ Análisis completado exitosamente",
+      "batchComplete": "✅ Análisis por lotes completado",
+      "modelSwitched": "✅ Modelo cambiado exitosamente"
+    },
+    "loading": {
+      "analyzing": "🔍 Analizando texto...",
+      "loadingModel": "🤖 Cargando modelo...",
+      "processing": "⚡ Procesando..."
+    }
+  },
+  "metrics": {
+    "model": {
+      "name": "DistilBERT",
+      "parameters": "66.9M",
+      "layers": 6,
+      "accuracy": 0.74,
+      "f1Score": 0.73,
+      "trainingTime": "45 min"
+    },
+    "training": {
+      "dataset": "IMDB Movie Reviews",
+      "samples": 25000,
+      "epochs": 3,
+      "batchSize": 16,
+      "learningRate": 0.00002
+    }
+  },
+  "architecture": {
+    "components": [
+      {
+        "name": "Tokenizer",
+        "description": "Convierte texto en tokens",
+        "input": "Texto crudo",
+        "output": "Token IDs"
+      },
+      {
+        "name": "DistilBERT",
+        "description": "Modelo transformer pre-entrenado",
+        "input": "Token IDs",
+        "output": "Embeddings contextuales"
+      },
+      {
+        "name": "Classifier Head",
+        "description": "Capa de clasificación final",
+        "input": "Embeddings",
+        "output": "Logits de sentimiento"
+      },
+      {
+        "name": "Softmax",
+        "description": "Convierte logits a probabilidades",
+        "input": "Logits",
+        "output": "Probabilidades [0,1]"
+      }
+    ]
+  },
+  "development": {
+    "debug": false,
+    "mockApiDelay": 1000,
+    "logLevel": "info",
+    "features": {
+      "devTools": false,
+      "performanceMonitoring": true
+    }
+  }
+}

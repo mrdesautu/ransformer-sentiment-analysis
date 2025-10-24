@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+env/
+venv/
+.venv/
+
+# Model files (too large for GitHub)
+*.bin
+*.pt
+*.pth
+*.safetensors
+mi_modelo_entrenado/
+modelo_rapido/
+checkpoint-*/
+
+# Hugging Face Spaces (separate repo)
+transformer-sentiment-analysis/
+
+# Hugging Face cache
+~/.cache/huggingface/
+
+# MacOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Data files
+*.csv
+*.json.gz
+*.parquet
