@@ -12,3 +12,12 @@ uvicorn[standard]>=0.20.0
 pydantic>=2.0.0
 python-multipart
 aiofiles
+gradio>=4.0.0
+torch>=2.0.0
+transformers>=4.30.0
+plotly>=5.0.0
+pandas>=1.5.0
+numpy>=1.24.0
+mlflow>=2.8.0
+optuna>=3.0.0
+huggingface_hub>=0.19.0

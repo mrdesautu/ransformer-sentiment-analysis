@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Gradio app for Hugging Face Spaces deployment
-Advanced sentiment analysis demo with modern UI
+Advanced sentiment analysis demo with modern UI and MLflow integration
 """
 
 import gradio as gr
@@ -9,16 +9,19 @@ import torch
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import numpy as np
 import plotly.express as px
+import plotly.graph_objects as go
 import pandas as pd
 from typing import Dict, List, Tuple
 import logging
+import mlflow
+from pathlib import Path
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class SentimentAnalyzer:
-    """Professional sentiment analyzer for demo"""
+    """Sentiment analyzer for demo"""
     
     def __init__(self):
         self.model_name = "distilbert-base-uncased-finetuned-sst-2-english"
@@ -89,6 +92,234 @@ class SentimentAnalyzer:
 
 # Initialize analyzer
 analyzer = SentimentAnalyzer()
+
+def get_mlflow_metrics() -> Tuple[pd.DataFrame, str]:
+    """Get MLflow experiment metrics and summary"""
+    try:
+        # Set MLflow tracking URI
+        mlflow.set_tracking_uri("./mlruns")
+        
+        # Get all experiments
+        experiments = mlflow.search_experiments()
+        experiment_names = ['production-training', 'sentiment-analysis-training']
+        
+        # Search for runs
+        runs = mlflow.search_runs(
+            experiment_names=experiment_names,
+            order_by=["metrics.test_eval_accuracy DESC"]
+        )
+        
+        if len(runs) == 0:
+            return pd.DataFrame(), "No MLflow runs found"
+        
+        # Filter runs with test metrics
+        runs_with_test = runs[runs['metrics.test_eval_accuracy'].notna()].copy()
+        
+        if len(runs_with_test) == 0:
+            return pd.DataFrame(), "No completed runs with test metrics"
+        
+        # Get top 5 runs
+        top_runs = runs_with_test.head(5)
+        
+        # Create summary
+        summary_lines = [
+            f"**📊 MLflow Experiment Summary**\n",
+            f"Total runs: {len(runs)}",
+            f"Completed runs: {len(runs_with_test)}\n",
+            f"**🏆 Top Model:**",
+            f"- Accuracy: {top_runs.iloc[0]['metrics.test_eval_accuracy']:.2%}",
+            f"- F1 Score: {top_runs.iloc[0]['metrics.test_eval_f1']:.4f}",
+            f"- Loss: {top_runs.iloc[0]['metrics.test_eval_loss']:.4f}",
+        ]
+        
+        summary = "\n".join(summary_lines)
+        
+        return top_runs, summary
+        
+    except Exception as e:
+        logger.error(f"Error getting MLflow metrics: {e}")
+        return pd.DataFrame(), f"Error loading MLflow data: {str(e)}"
+
+def create_metrics_plot() -> go.Figure:
+    """Create a comprehensive metrics visualization"""
+    try:
+        top_runs, _ = get_mlflow_metrics()
+        
+        if top_runs.empty:
+            fig = go.Figure()
+            fig.add_annotation(
+                text="No MLflow data available",
+                xref="paper", yref="paper",
+                x=0.5, y=0.5, showarrow=False
+            )
+            return fig
+        
+        # Prepare data for plotting
+        plot_data = []
+        for idx, row in top_runs.iterrows():
+            run_name = row.get('tags.mlflow.runName', f'Run {idx}')
+            plot_data.append({
+                'Run': run_name[:20],  # Truncate long names
+                'Accuracy': row.get('metrics.test_eval_accuracy', 0) * 100,
+                'F1 Score': row.get('metrics.test_eval_f1', 0) * 100,
+                'Loss': row.get('metrics.test_eval_loss', 0)
+            })
+        
+        df = pd.DataFrame(plot_data)
+        
+        # Create subplots
+        fig = go.Figure()
+        
+        # Add accuracy bars
+        fig.add_trace(go.Bar(
+            name='Accuracy (%)',
+            x=df['Run'],
+            y=df['Accuracy'],
+            marker_color='#667eea',
+            text=df['Accuracy'].round(1),
+            textposition='outside',
+            texttemplate='%{text}%'
+        ))
+        
+        # Add F1 score bars
+        fig.add_trace(go.Bar(
+            name='F1 Score (%)',
+            x=df['Run'],
+            y=df['F1 Score'],
+            marker_color='#52b788',
+            text=df['F1 Score'].round(1),
+            textposition='outside',
+            texttemplate='%{text}%'
+        ))
+        
+        fig.update_layout(
+            title='Model Performance Comparison (Top 5 Runs)',
+            xaxis_title='Model Run',
+            yaxis_title='Score (%)',
+            barmode='group',
+            height=400,
+            showlegend=True,
+            hovermode='x unified'
+        )
+        
+        return fig
+        
+    except Exception as e:
+        logger.error(f"Error creating metrics plot: {e}")
+        fig = go.Figure()
+        fig.add_annotation(
+            text=f"Error: {str(e)}",
+            xref="paper", yref="paper",
+            x=0.5, y=0.5, showarrow=False
+        )
+        return fig
+
+def create_loss_plot() -> go.Figure:
+    """Create loss comparison plot"""
+    try:
+        top_runs, _ = get_mlflow_metrics()
+        
+        if top_runs.empty:
+            fig = go.Figure()
+            fig.add_annotation(
+                text="No MLflow data available",
+                xref="paper", yref="paper",
+                x=0.5, y=0.5, showarrow=False
+            )
+            return fig
+        
+        # Prepare data
+        plot_data = []
+        for idx, row in top_runs.iterrows():
+            run_name = row.get('tags.mlflow.runName', f'Run {idx}')
+            plot_data.append({
+                'Run': run_name[:20],
+                'Test Loss': row.get('metrics.test_eval_loss', 0),
+                'Eval Loss': row.get('metrics.eval_loss', 0)
+            })
+        
+        df = pd.DataFrame(plot_data)
+        
+        fig = go.Figure()
+        
+        fig.add_trace(go.Scatter(
+            x=df['Run'],
+            y=df['Test Loss'],
+            mode='lines+markers',
+            name='Test Loss',
+            line=dict(color='#f72585', width=3),
+            marker=dict(size=10)
+        ))
+        
+        fig.add_trace(go.Scatter(
+            x=df['Run'],
+            y=df['Eval Loss'],
+            mode='lines+markers',
+            name='Eval Loss',
+            line=dict(color='#f77f00', width=3),
+            marker=dict(size=10)
+        ))
+        
+        fig.update_layout(
+            title='Loss Comparison Across Runs',
+            xaxis_title='Model Run',
+            yaxis_title='Loss',
+            height=400,
+            hovermode='x unified'
+        )
+        
+        return fig
+        
+    except Exception as e:
+        logger.error(f"Error creating loss plot: {e}")
+        fig = go.Figure()
+        fig.add_annotation(
+            text=f"Error: {str(e)}",
+            xref="paper", yref="paper",
+            x=0.5, y=0.5, showarrow=False
+        )
+        return fig
+
+def get_experiment_details() -> str:
+    """Get detailed experiment information"""
+    try:
+        mlflow.set_tracking_uri("./mlruns")
+        runs = mlflow.search_runs(
+            experiment_names=['production-training', 'sentiment-analysis-training']
+        )
+        
+        if len(runs) == 0:
+            return "**No experiments found**\n\nStart training to see results here!"
+        
+        runs_with_test = runs[runs['metrics.test_eval_accuracy'].notna()]
+        
+        details = [
+            "# 📊 Experiment Details\n",
+            f"**Total Experiments:** {len(runs)}",
+            f"**Completed Runs:** {len(runs_with_test)}",
+            f"**Best Accuracy:** {runs_with_test['metrics.test_eval_accuracy'].max():.2%}" if len(runs_with_test) > 0 else "N/A",
+            f"**Average Accuracy:** {runs_with_test['metrics.test_eval_accuracy'].mean():.2%}" if len(runs_with_test) > 0 else "N/A",
+            "\n## 🏆 Top 3 Models\n"
+        ]
+        
+        for idx, row in runs_with_test.head(3).iterrows():
+            run_name = row.get('tags.mlflow.runName', 'unnamed')
+            accuracy = row.get('metrics.test_eval_accuracy', 0)
+            f1 = row.get('metrics.test_eval_f1', 0)
+            loss = row.get('metrics.test_eval_loss', 0)
+            lr = row.get('params.learning_rate', 'N/A')
+            
+            details.append(f"### {idx+1}. {run_name}")
+            details.append(f"- **Accuracy:** {accuracy:.2%}")
+            details.append(f"- **F1 Score:** {f1:.4f}")
+            details.append(f"- **Loss:** {loss:.4f}")
+            details.append(f"- **Learning Rate:** {lr}\n")
+        
+        return "\n".join(details)
+        
+    except Exception as e:
+        return f"**Error loading experiment details:** {str(e)}"
+
 
 def analyze_sentiment(text: str) -> Tuple[str, float, dict]:
     """Main analysis function for Gradio"""
@@ -191,8 +422,7 @@ with gr.Blocks(
     theme=gr.themes.Soft(
         primary_hue="blue",
         secondary_hue="purple",
-        neutral_hue="slate",
-        font=["Inter", "ui-sans-serif", "system-ui", "sans-serif"]
+        neutral_hue="slate"
     ),
     css="""
     /* Global styling */
@@ -369,75 +599,104 @@ with gr.Blocks(
                     batch_output = gr.Markdown(label="📈 Batch Results")
                     batch_plot = gr.Plot(label="📊 Visual Analytics")
         
-        # Technical Details Tab
-        with gr.TabItem("🛠️ Technical Details", elem_id="tech-tab"):
+        # MLflow Metrics Tab (NEW!)
+        with gr.TabItem("📈 MLflow Metrics", elem_id="mlflow-tab"):
             gr.Markdown("""
-            <div style="background: linear-gradient(135deg, #f72585 0%, #b5179e 100%); 
+            <div style="background: linear-gradient(135deg, #f77f00 0%, #d62828 100%); 
                         padding: 15px; border-radius: 10px; margin-bottom: 20px;">
                 <h3 style="color: white; margin: 0; text-align: center;">
-                    Deep dive into architecture, performance, and capabilities
+                    Track and compare model training experiments
                 </h3>
             </div>
-            
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin: 20px 0;">
-                
-                <div style="background: #f8f9fa; padding: 25px; border-radius: 12px; border-top: 4px solid #667eea;">
-                    <h4 style="color: #2E86AB; margin: 0 0 15px 0;">🏗️ Architecture</h4>
-                    <ul style="color: #666; line-height: 1.6;">
-                        <li><strong>Model:</strong> DistilBERT (Distilled BERT)</li>
-                        <li><strong>Parameters:</strong> 66 million</li>
-                        <li><strong>Training:</strong> Fine-tuned on SST-2</li>
-                        <li><strong>Accuracy:</strong> 74% on IMDB dataset</li>
-                    </ul>
-                </div>
-                
-                <div style="background: #f8f9fa; padding: 25px; border-radius: 12px; border-top: 4px solid #52b788;">
-                    <h4 style="color: #2E86AB; margin: 0 0 15px 0;">⚡ Performance</h4>
-                    <ul style="color: #666; line-height: 1.6;">
-                        <li><strong>Speed:</strong> ~100ms per prediction</li>
-                        <li><strong>Batch Processing:</strong> Supported</li>
-                        <li><strong>Memory:</strong> Optimized for production</li>
-                        <li><strong>Scalability:</strong> Cloud-ready</li>
-                    </ul>
-                </div>
-                
-                <div style="background: #f8f9fa; padding: 25px; border-radius: 12px; border-top: 4px solid #f72585;">
-                    <h4 style="color: #2E86AB; margin: 0 0 15px 0;">🔧 Features</h4>
-                    <ul style="color: #666; line-height: 1.6;">
-                        <li>Real-time sentiment classification</li>
-                        <li>Confidence scoring & probabilities</li>
-                        <li>RESTful API with async support</li>
-                        <li>Model interpretability tools</li>
-                    </ul>
-                </div>
-                
-                <div style="background: #f8f9fa; padding: 25px; border-radius: 12px; border-top: 4px solid #f77f00;">
-                    <h4 style="color: #2E86AB; margin: 0 0 15px 0;">🚀 Tech Stack</h4>
-                    <ul style="color: #666; line-height: 1.6;">
-                        <li><strong>Framework:</strong> PyTorch + Transformers</li>
-                        <li><strong>API:</strong> FastAPI with async</li>
-                        <li><strong>Deployment:</strong> Docker + Cloud</li>
-                        <li><strong>Testing:</strong> Comprehensive suite</li>
-                    </ul>
-                </div>
-                
-            </div>
-            
-            <div style="background: #e3f2fd; padding: 20px; border-radius: 10px; margin: 30px 0;">
-                <h4 style="color: #1976d2; margin: 0 0 15px 0;">🎯 Use Cases</h4>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
-                    <div style="color: #666;">📱 Social media monitoring</div>
-                    <div style="color: #666;">📧 Customer feedback analysis</div>
-                    <div style="color: #666;">📊 Market research insights</div>
-                    <div style="color: #666;">🛒 Product review classification</div>
-                </div>
-            </div>
-            
-            <div style="text-align: center; padding: 20px; background: #f5f5f5; border-radius: 10px;">
-                <h4 style="color: #2E86AB; margin: 0 0 10px 0;">🔗 Open Source Project</h4>
-                <p style="color: #666; margin: 0;">Complete source code, training scripts, and deployment guides available on GitHub</p>
-            </div>
             """)
+            
+            with gr.Row():
+                mlflow_refresh_btn = gr.Button(
+                    "🔄 Refresh Metrics",
+                    variant="primary",
+                    size="lg"
+                )
+            
+            with gr.Row():
+                with gr.Column(scale=1):
+                    mlflow_summary = gr.Markdown(
+                        value=get_mlflow_metrics()[1],
+                        label="📊 Summary"
+                    )
+                    mlflow_details = gr.Markdown(
+                        value=get_experiment_details(),
+                        label="📋 Experiment Details"
+                    )
+                
+                with gr.Column(scale=2):
+                    metrics_plot = gr.Plot(
+                        value=create_metrics_plot(),
+                        label="📊 Performance Metrics"
+                    )
+                    loss_plot = gr.Plot(
+                        value=create_loss_plot(),
+                        label="📉 Loss Comparison"
+                    )
+        
+        # Technical Details Tab
+        with gr.TabItem("🛠️ Technical Details", elem_id="tech-tab"):
+            gr.Markdown("## Deep dive into architecture, performance, and capabilities\n")
+            
+            with gr.Row():
+                with gr.Column():
+                    gr.Markdown("""
+### 🏗️ Architecture
+- **Model:** DistilBERT (Distilled BERT)
+- **Parameters:** 66 million
+- **Training:** Fine-tuned on SST-2
+- **Accuracy:** 80% on IMDB dataset
+""")
+                
+                with gr.Column():
+                    gr.Markdown("""
+### ⚡ Performance
+- **Speed:** ~100ms per prediction
+- **Batch Processing:** Supported
+- **Memory:** Optimized for production
+- **Scalability:** Cloud-ready
+""")
+            
+            with gr.Row():
+                with gr.Column():
+                    gr.Markdown("""
+### 🔧 Features
+- Real-time sentiment classification
+- Confidence scoring & probabilities
+- RESTful API with async support
+- Model interpretability tools
+- MLflow experiment tracking
+""")
+                
+                with gr.Column():
+                    gr.Markdown("""
+### 🚀 Tech Stack
+- **Framework:** PyTorch + Transformers
+- **API:** FastAPI with async
+- **Tracking:** MLflow experiments
+- **Testing:** Comprehensive suite
+""")
+            
+            gr.Markdown("---")
+            
+            gr.Markdown("""
+### 🎯 Use Cases
+- 📱 Social media monitoring
+- 📧 Customer feedback analysis
+- 📊 Market research insights
+- 🛒 Product review classification
+""")
+            
+            gr.Markdown("---")
+            
+            gr.Markdown("""
+### 🔗 Open Source Project
+Complete source code, training scripts, and deployment guides available on GitHub
+""")
     
     # Event handlers
     single_btn.click(
@@ -450,6 +709,20 @@ with gr.Blocks(
         fn=analyze_batch_texts,
         inputs=batch_input,
         outputs=[batch_output, batch_plot]
+    )
+    
+    # MLflow refresh handler
+    def refresh_mlflow():
+        _, summary = get_mlflow_metrics()
+        details = get_experiment_details()
+        metrics = create_metrics_plot()
+        loss = create_loss_plot()
+        return summary, details, metrics, loss
+    
+    mlflow_refresh_btn.click(
+        fn=refresh_mlflow,
+        inputs=[],
+        outputs=[mlflow_summary, mlflow_details, metrics_plot, loss_plot]
     )
     
     # Footer with modern styling
@@ -465,7 +738,7 @@ with gr.Blocks(
             <span style="background: rgba(255,255,255,0.2); padding: 8px 16px; border-radius: 20px; color: white;">PyTorch</span>
             <span style="background: rgba(255,255,255,0.2); padding: 8px 16px; border-radius: 20px; color: white;">Transformers</span>
             <span style="background: rgba(255,255,255,0.2); padding: 8px 16px; border-radius: 20px; color: white;">FastAPI</span>
-            <span style="background: rgba(255,255,255,0.2); padding: 8px 16px; border-radius: 20px; color: white;">Docker</span>
+            <span style="background: rgba(255,255,255,0.2); padding: 8px 16px; border-radius: 20px; color: white;">MLflow</span>
             <span style="background: rgba(255,255,255,0.2); padding: 8px 16px; border-radius: 20px; color: white;">Gradio</span>
         </div>
     </div>

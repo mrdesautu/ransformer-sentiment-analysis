@@ -25,6 +25,13 @@
     "eval_size": 1000,
     "test_size": 500
   },
+  "mlflow": {
+    "enabled": true,
+    "tracking_uri": null,
+    "experiment_name": "sentiment-analysis-training",
+    "artifact_location": null,
+    "registered_model_prefix": "sentiment-model"
+  },
   "api": {
     "host": "0.0.0.0",
     "port": 8000,
